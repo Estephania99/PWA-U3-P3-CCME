@@ -1,5 +1,4 @@
-const CACHE_NAME = 'cache-v1';
-const CACHE_STATIC_NAME = 'static-v1';
+const CACHE_STATIC_NAME = 'static-v2';
 const CACHE_DYNAMIC_NAME = 'dynamic-v1';
 const CACHE_INMUTABLE_NAME = 'inmutable-v1';
 
@@ -24,7 +23,8 @@ self.addEventListener('install', (event)=>{
             'index.html',
             'css/page.css',
             'img/inicio.jpg',
-            'js/app.js'
+            'js/app.js',
+            'pages/view-offline.html'
         ]);
     });
 
@@ -39,7 +39,52 @@ self.addEventListener('install', (event)=>{
     event.waitUntil(Promise.all([promesaCache, promInmutable]));
 });
 
+self.addEventListener('activate', (event)=>{
+    const resDelCache = caches.keys().then((keys) =>{
+        keys.forEach(key => {
+            if(key !== CACHE_STATIC_NAME && key.includes('static')){
+                return caches.delete(key);
+            }
+        })
+
+    });
+
+    event.waitUntil(resDelCache)
+})
+
 self.addEventListener('fetch', (event)=>{
+
+    // 3.- Nerwork with cache fallback
+    /*const respuesta = fetch(event.request).then((res) =>{
+        if(!res){
+            //aquí se retorno la respuesta generica
+            return caches.match(event.request).then((resCache) =>{
+                console.log(resCache);
+                return resCache;
+            }).catch((error) =>{
+                console.log(error);
+            })
+        }
+
+        caches.open(CACHE_DYNAMIC_NAME).then((cache) =>{
+            cache.put(event.request, res);
+            cleanCache(CACHE_DYNAMIC_NAME, 5);
+        })
+        return res.clone();
+    }).catch((error) =>{
+        // Excepción en el fetch
+        // Tratar de retornar algo que está en caché
+
+        //aquí se retorno la respuesta generica
+        return caches.match(event.request).then((resCache) =>{
+            console.log(resCache);
+            return resCache;
+        }).catch((error) =>{
+            console.log(error);
+        })
+    });
+
+    event.respondWith(respuesta);*/
 
     // 2.- Cache with network fallback
     // Primero busca caché y si no lo encuentra va a la red
@@ -62,6 +107,13 @@ self.addEventListener('fetch', (event)=>{
             });
             // respondo con el response de la red
             return respuestaNetwork.clone();
+        }).catch(()=>{
+            console.log('Error al solicitar el recurso');
+
+            if(event.request.headers.get('accept').includes('text/html')){
+                return caches.match('/pages/view-offline.html')
+            }
+
         });
     });
     event.respondWith(respuestaCache);
